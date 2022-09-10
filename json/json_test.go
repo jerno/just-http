@@ -2,6 +2,7 @@ package json
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -26,7 +27,7 @@ func TestAgainstHttpbin(t *testing.T) {
 				Url:  "http://httpbin.org/get",
 				Args: map[string]interface{}{},
 			},
-			wantErr: false,
+			wantErr: "<nil>",
 		},
 		{
 			name: "Test GET to a valid URL with url parameters",
@@ -45,7 +46,7 @@ func TestAgainstHttpbin(t *testing.T) {
 					"MyTestParams": "TestValue",
 				},
 			},
-			wantErr: false,
+			wantErr: "<nil>",
 		},
 		{
 			name: "Test POST to a valid URL",
@@ -59,7 +60,7 @@ func TestAgainstHttpbin(t *testing.T) {
 				Args: map[string]interface{}{},
 				Json: SampleJson{Cluster_name: "Hello server", Pings: 1},
 			},
-			wantErr: false,
+			wantErr: "<nil>",
 		},
 		{
 			name: "Test PUT to a valid URL",
@@ -73,7 +74,7 @@ func TestAgainstHttpbin(t *testing.T) {
 				Args: map[string]interface{}{},
 				Json: SampleJson{Cluster_name: "Hello server", Pings: 1},
 			},
-			wantErr: false,
+			wantErr: "<nil>",
 		},
 		{
 			name: "Test DELETE to a valid URL",
@@ -87,7 +88,7 @@ func TestAgainstHttpbin(t *testing.T) {
 				Args: map[string]interface{}{},
 				Json: SampleJson{Cluster_name: "Hello server", Pings: 1},
 			},
-			wantErr: false,
+			wantErr: "<nil>",
 		},
 		{
 			name: "Test invalid URL",
@@ -96,7 +97,19 @@ func TestAgainstHttpbin(t *testing.T) {
 				url:    "ht%$://invalid-url",
 			},
 			want:    HttpBinResponse{},
-			wantErr: true,
+			wantErr: "parse \"ht%$://invalid-url\": first path segment in URL cannot contain colon",
+		},
+		{
+			name: "Test GET with size limit",
+			parameters: parameters[SampleJson]{
+				method: http.MethodGet,
+				url:    "http://httpbin.org/get",
+				options: RequestArguments{
+					SizeLimit: 20,
+				},
+			},
+			want:    HttpBinResponse{},
+			wantErr: "Body limit (20 bytes) exceeded",
 		},
 	}
 
@@ -116,10 +129,7 @@ func TestAgainstHttpbin(t *testing.T) {
 				err = Delete(testCase.parameters.url, testCase.parameters.data, &parsedJsonData, testCase.parameters.options)
 			}
 
-			if (err != nil) != testCase.wantErr {
-				t.Errorf("TestGet() error = %v, wantErr %v", err, testCase.wantErr)
-				return
-			}
+			assert.Equal(t, testCase.wantErr, fmt.Sprintf("%v", err))
 			assert.Equal(t, testCase.want, parsedJsonData)
 		})
 	}
@@ -140,7 +150,7 @@ func TestAgainstMockServer(t *testing.T) {
 				},
 			},
 			want:    SampleJson{Cluster_name: "server cluster", Pings: 202},
-			wantErr: false,
+			wantErr: "<nil>",
 		},
 		{
 			name: "Test request with a timeout of 500ms on a server delay of 1000ms",
@@ -152,7 +162,7 @@ func TestAgainstMockServer(t *testing.T) {
 				},
 			},
 			want:    SampleJson{},
-			wantErr: true,
+			wantErr: "Time limit (500ms) exceeded",
 		},
 		{
 			name: "Test request WITHOUT a timeout on a server delay of 1000ms",
@@ -164,7 +174,7 @@ func TestAgainstMockServer(t *testing.T) {
 				},
 			},
 			want:    SampleJson{Cluster_name: "server cluster", Pings: 202},
-			wantErr: false,
+			wantErr: "<nil>",
 		},
 	}
 
@@ -172,13 +182,9 @@ func TestAgainstMockServer(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			var parsedJsonData SampleJson
 			err := Post(testCase.parameters.url, testCase.parameters.data, &parsedJsonData, testCase.parameters.options)
-			if (err != nil) != testCase.wantErr {
-				t.Errorf("TestTimeout() error = %v, wantErr %v", err, testCase.wantErr)
-				return
-			}
-			if parsedJsonData != testCase.want {
-				t.Errorf("TestTimeout() = %v, want %v", parsedJsonData, testCase.want)
-			}
+
+			assert.Equal(t, testCase.wantErr, fmt.Sprintf("%v", err))
+			assert.Equal(t, testCase.want, parsedJsonData)
 		})
 	}
 }
@@ -211,7 +217,7 @@ type testCase[T1 any, T2 any] struct {
 	name       string
 	parameters T1
 	want       T2
-	wantErr    bool
+	wantErr    string
 }
 
 type parameters[T any] struct {

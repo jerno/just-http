@@ -4,11 +4,21 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"time"
 
 	"github.com/imdario/mergo"
 )
+
+const sizeLimit1MB int64 = 1 << 20
+
+var defaultArgs = RequestArguments{
+	TimeoutInMilliseconds: 0,
+	SizeLimit:             sizeLimit1MB,
+}
 
 func Get[TResponse any](url string, parsed *TResponse, argList ...RequestArguments) error {
 	err := sendRequest(url, http.MethodGet, new(TResponse), parsed, argList...)
@@ -60,6 +70,9 @@ func sendRequest[TData any, TResponse any](url string, method string, data TData
 	} else {
 		req, err = http.NewRequest(method, url, &buffer)
 	}
+	if err != nil {
+		return err
+	}
 
 	if len(args.QueryParams) > 0 {
 		q := req.URL.Query()
@@ -69,18 +82,21 @@ func sendRequest[TData any, TResponse any](url string, method string, data TData
 		req.URL.RawQuery = q.Encode()
 	}
 
-	if err != nil {
-		return err
-	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
+		isCanceled := errors.Is(err, context.DeadlineExceeded)
+		if isCanceled {
+			return &JustHttpError{Message: fmt.Sprintf("Time limit (%s) exceeded", time.Duration(args.TimeoutInMilliseconds)*time.Millisecond)}
+		}
 		return err
 	}
 	defer resp.Body.Close()
 
-	dec := json.NewDecoder(resp.Body)
-	if err := dec.Decode(&parsed); err != nil {
-		return err
+	maxSize := args.SizeLimit
+	limitReader := io.LimitReader(resp.Body, maxSize)
+	decoder := json.NewDecoder(limitReader)
+	if err := decoder.Decode(&parsed); err != nil {
+		return &JustHttpError{Message: fmt.Sprintf("Body limit (%d bytes) exceeded", maxSize)}
 	}
 
 	return nil
@@ -89,7 +105,7 @@ func sendRequest[TData any, TResponse any](url string, method string, data TData
 // getArgs merges the request arguments passed to the function
 // It merges the structs, where latter values take precendence over the previous values (all field will be merged)
 func getArgs(args ...RequestArguments) RequestArguments {
-	merged := RequestArguments{}
+	merged := defaultArgs
 	for _, v := range args {
 		mergo.Merge(&v, merged)
 		merged = v
@@ -99,5 +115,14 @@ func getArgs(args ...RequestArguments) RequestArguments {
 
 type RequestArguments struct {
 	TimeoutInMilliseconds int
+	SizeLimit             int64
 	QueryParams           map[string]string
+}
+
+type JustHttpError struct {
+	Message string
+}
+
+func (e *JustHttpError) Error() string {
+	return e.Message
 }
