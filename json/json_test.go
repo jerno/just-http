@@ -138,26 +138,7 @@ func TestAgainstHttpbin(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			var parsedJsonData HttpBinResponse
-			var err error
-
-			switch testCase.parameters.method {
-			case http.MethodGet:
-				err = Get(testCase.parameters.url, &parsedJsonData, testCase.parameters.options)
-			case http.MethodPost:
-				err = Post(testCase.parameters.url, testCase.parameters.data, &parsedJsonData, testCase.parameters.options)
-			case http.MethodPut:
-				err = Put(testCase.parameters.url, testCase.parameters.data, &parsedJsonData, testCase.parameters.options)
-			case http.MethodDelete:
-				err = Delete(testCase.parameters.url, testCase.parameters.data, &parsedJsonData, testCase.parameters.options)
-			}
-
-			assert.Equal(t, testCase.wantErr, fmt.Sprintf("%v", err))
-			assert.Equal(t, testCase.want, parsedJsonData)
-		})
-	}
+	validateTestCases(testCases, t)
 }
 
 func TestAgainstMockServer(t *testing.T) {
@@ -168,8 +149,9 @@ func TestAgainstMockServer(t *testing.T) {
 		{
 			name: "1) Test request WITHOUT a timeout on a server delay of 1000ms",
 			parameters: parameters[SampleJson]{
-				url:  server.URL + "/" + "valid-post-url",
-				data: SampleJson{Cluster_name: "Hello server", Pings: 1},
+				url:    server.URL + "/" + "valid-post-url",
+				method: http.MethodGet,
+				data:   SampleJson{},
 				options: RequestArguments{
 					TimeoutInMilliseconds: 0,
 				},
@@ -178,12 +160,13 @@ func TestAgainstMockServer(t *testing.T) {
 			wantErr: "<nil>",
 		},
 		{
-			name: "1) Test request with a timeout of 1500ms on a server delay of 1000ms",
+			name: "1) Test request with a timeout of 5000ms on a server delay of 1000ms",
 			parameters: parameters[SampleJson]{
-				url:  server.URL + "/" + "valid-post-url",
-				data: SampleJson{Cluster_name: "Hello server", Pings: 1},
+				url:    server.URL + "/" + "valid-post-url",
+				method: http.MethodGet,
+				data:   SampleJson{},
 				options: RequestArguments{
-					TimeoutInMilliseconds: 1500,
+					TimeoutInMilliseconds: 5000,
 				},
 			},
 			want:    SampleJson{Cluster_name: "server cluster", Pings: 202},
@@ -192,8 +175,9 @@ func TestAgainstMockServer(t *testing.T) {
 		{
 			name: "2) Test request with a timeout of 500ms on a server delay of 1000ms",
 			parameters: parameters[SampleJson]{
-				url:  server.URL + "/" + "valid-post-url",
-				data: SampleJson{Cluster_name: "Hello server", Pings: 1},
+				url:    server.URL + "/" + "valid-post-url",
+				method: http.MethodGet,
+				data:   SampleJson{},
 				options: RequestArguments{
 					TimeoutInMilliseconds: 500,
 				},
@@ -203,15 +187,7 @@ func TestAgainstMockServer(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			var parsedJsonData SampleJson
-			err := Post(testCase.parameters.url, testCase.parameters.data, &parsedJsonData, testCase.parameters.options)
-
-			assert.Equal(t, testCase.wantErr, fmt.Sprintf("%v", err))
-			assert.Equal(t, testCase.want, parsedJsonData)
-		})
-	}
+	validateTestCases(testCases, t)
 }
 
 func createServer(delayInMilliseconds int) *httptest.Server {
@@ -236,6 +212,29 @@ func createServer(delayInMilliseconds int) *httptest.Server {
 		}
 	}))
 	return server
+}
+
+func validateTestCases[TResponse any](testCases []testCase[parameters[SampleJson], TResponse], t *testing.T) {
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			var parsedJsonData TResponse
+			var err error
+
+			switch testCase.parameters.method {
+			case http.MethodGet:
+				err = Get(testCase.parameters.url, &parsedJsonData, testCase.parameters.options)
+			case http.MethodPost:
+				err = Post(testCase.parameters.url, testCase.parameters.data, &parsedJsonData, testCase.parameters.options)
+			case http.MethodPut:
+				err = Put(testCase.parameters.url, testCase.parameters.data, &parsedJsonData, testCase.parameters.options)
+			case http.MethodDelete:
+				err = Delete(testCase.parameters.url, testCase.parameters.data, &parsedJsonData, testCase.parameters.options)
+			}
+
+			assert.Equal(t, testCase.wantErr, fmt.Sprintf("%v", err))
+			assert.Equal(t, testCase.want, parsedJsonData)
+		})
+	}
 }
 
 type testCase[T1 any, T2 any] struct {
