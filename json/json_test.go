@@ -18,7 +18,7 @@ func TestAgainstHttpbin(t *testing.T) {
 
 	testCases := []testCase[parameters[SampleJson], HttpBinResponse]{
 		{
-			name: "Test GET to a valid URL",
+			name: "1) Test GET to a valid URL",
 			parameters: parameters[SampleJson]{
 				method: http.MethodGet,
 				url:    "http://httpbin.org/get",
@@ -30,7 +30,7 @@ func TestAgainstHttpbin(t *testing.T) {
 			wantErr: "<nil>",
 		},
 		{
-			name: "Test GET to a valid URL with url parameters",
+			name: "1) Test GET to a valid URL with url parameters",
 			parameters: parameters[SampleJson]{
 				method: http.MethodGet,
 				url:    "http://httpbin.org/get",
@@ -49,7 +49,7 @@ func TestAgainstHttpbin(t *testing.T) {
 			wantErr: "<nil>",
 		},
 		{
-			name: "Test POST to a valid URL",
+			name: "2) Test POST to a valid URL",
 			parameters: parameters[SampleJson]{
 				method: http.MethodPost,
 				url:    "http://httpbin.org/post",
@@ -63,7 +63,7 @@ func TestAgainstHttpbin(t *testing.T) {
 			wantErr: "<nil>",
 		},
 		{
-			name: "Test PUT to a valid URL",
+			name: "2) Test PUT to a valid URL",
 			parameters: parameters[SampleJson]{
 				method: http.MethodPut,
 				url:    "http://httpbin.org/put",
@@ -77,7 +77,7 @@ func TestAgainstHttpbin(t *testing.T) {
 			wantErr: "<nil>",
 		},
 		{
-			name: "Test DELETE to a valid URL",
+			name: "2) Test DELETE to a valid URL",
 			parameters: parameters[SampleJson]{
 				method: http.MethodDelete,
 				url:    "http://httpbin.org/delete",
@@ -91,7 +91,7 @@ func TestAgainstHttpbin(t *testing.T) {
 			wantErr: "<nil>",
 		},
 		{
-			name: "Test invalid URL",
+			name: "5) Test invalid URL",
 			parameters: parameters[SampleJson]{
 				method: http.MethodGet,
 				url:    "ht%$://invalid-url",
@@ -100,7 +100,7 @@ func TestAgainstHttpbin(t *testing.T) {
 			wantErr: "parse \"ht%$://invalid-url\": first path segment in URL cannot contain colon",
 		},
 		{
-			name: "Test GET with size limit",
+			name: "6) Test size limit",
 			parameters: parameters[SampleJson]{
 				method: http.MethodGet,
 				url:    "http://httpbin.org/get",
@@ -110,6 +110,31 @@ func TestAgainstHttpbin(t *testing.T) {
 			},
 			want:    HttpBinResponse{},
 			wantErr: "Body limit (20 bytes) exceeded",
+		},
+		{
+			name: "7) Test Basic Auth WITHOUT header",
+			parameters: parameters[SampleJson]{
+				method:  http.MethodGet,
+				url:     "http://httpbin.org/basic-auth/test-user/test-pass",
+				options: RequestArguments{},
+			},
+			want:    HttpBinResponse{},
+			wantErr: "HTTP error 401",
+		},
+		{
+			name: "7) Test Basic Auth with correct header",
+			parameters: parameters[SampleJson]{
+				method: http.MethodGet,
+				url:    "http://httpbin.org/basic-auth/test-user/test-pass",
+				options: RequestArguments{
+					BasicAuthCredentials: BasicAuthCredentials{
+						User: "test-user",
+						Pass: "test-pass",
+					},
+				},
+			},
+			want:    HttpBinResponse{},
+			wantErr: "<nil>",
 		},
 	}
 
@@ -141,7 +166,19 @@ func TestAgainstMockServer(t *testing.T) {
 
 	testCases := []testCase[parameters[SampleJson], SampleJson]{
 		{
-			name: "Test request with a timeout of 1500ms on a server delay of 1000ms",
+			name: "1) Test request WITHOUT a timeout on a server delay of 1000ms",
+			parameters: parameters[SampleJson]{
+				url:  server.URL + "/" + "valid-post-url",
+				data: SampleJson{Cluster_name: "Hello server", Pings: 1},
+				options: RequestArguments{
+					TimeoutInMilliseconds: 0,
+				},
+			},
+			want:    SampleJson{Cluster_name: "server cluster", Pings: 202},
+			wantErr: "<nil>",
+		},
+		{
+			name: "1) Test request with a timeout of 1500ms on a server delay of 1000ms",
 			parameters: parameters[SampleJson]{
 				url:  server.URL + "/" + "valid-post-url",
 				data: SampleJson{Cluster_name: "Hello server", Pings: 1},
@@ -153,7 +190,7 @@ func TestAgainstMockServer(t *testing.T) {
 			wantErr: "<nil>",
 		},
 		{
-			name: "Test request with a timeout of 500ms on a server delay of 1000ms",
+			name: "2) Test request with a timeout of 500ms on a server delay of 1000ms",
 			parameters: parameters[SampleJson]{
 				url:  server.URL + "/" + "valid-post-url",
 				data: SampleJson{Cluster_name: "Hello server", Pings: 1},
@@ -163,18 +200,6 @@ func TestAgainstMockServer(t *testing.T) {
 			},
 			want:    SampleJson{},
 			wantErr: "Time limit (500ms) exceeded",
-		},
-		{
-			name: "Test request WITHOUT a timeout on a server delay of 1000ms",
-			parameters: parameters[SampleJson]{
-				url:  server.URL + "/" + "valid-post-url",
-				data: SampleJson{Cluster_name: "Hello server", Pings: 1},
-				options: RequestArguments{
-					TimeoutInMilliseconds: 0,
-				},
-			},
-			want:    SampleJson{Cluster_name: "server cluster", Pings: 202},
-			wantErr: "<nil>",
 		},
 	}
 

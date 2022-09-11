@@ -6,11 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
 	"github.com/imdario/mergo"
+	betterLimitReader "github.com/luciddev13/limit_reader"
 )
 
 const sizeLimit1MB int64 = 1 << 20
@@ -74,6 +74,10 @@ func sendRequest[TData any, TResponse any](url string, method string, data TData
 		return err
 	}
 
+	if args.BasicAuthCredentials != (BasicAuthCredentials{}) {
+		req.SetBasicAuth(args.BasicAuthCredentials.User, args.BasicAuthCredentials.Pass)
+	}
+
 	if len(args.QueryParams) > 0 {
 		q := req.URL.Query()
 		for k, v := range args.QueryParams {
@@ -92,11 +96,24 @@ func sendRequest[TData any, TResponse any](url string, method string, data TData
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusUnauthorized {
+		return &JustHttpError{Message: fmt.Sprintf("HTTP error %d", resp.StatusCode)}
+	}
+
 	maxSize := args.SizeLimit
-	limitReader := io.LimitReader(resp.Body, maxSize)
-	decoder := json.NewDecoder(limitReader)
+	limitedReader := betterLimitReader.New(resp.Body, maxSize)
+	decoder := json.NewDecoder(limitedReader)
 	if err := decoder.Decode(&parsed); err != nil {
-		return &JustHttpError{Message: fmt.Sprintf("Body limit (%d bytes) exceeded", maxSize)}
+		if _, ok := err.(betterLimitReader.ReaderBoundsExceededError); ok {
+			// Here we need to see if the error is a ReaderBoundsExceededError to determine the
+			// Original Reader had more bytes then we are willing to process
+			// Handle too much data error
+			return &JustHttpError{Message: fmt.Sprintf("Body limit (%d bytes) exceeded", maxSize)}
+		} else {
+			// Handle other cases (it may be an EOF, in which case we were able to read
+			// all the bytes from the original Reader)
+			return err
+		}
 	}
 
 	return nil
@@ -116,7 +133,13 @@ func getArgs(args ...RequestArguments) RequestArguments {
 type RequestArguments struct {
 	TimeoutInMilliseconds int
 	SizeLimit             int64
+	BasicAuthCredentials  BasicAuthCredentials
 	QueryParams           map[string]string
+}
+
+type BasicAuthCredentials struct {
+	User string
+	Pass string
 }
 
 type JustHttpError struct {
