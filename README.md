@@ -8,8 +8,9 @@ A simple yet powerful HTTP client
 
 |Package                               |Description                                                             |
 |-------                               |-----------                                                             |
-|`"github.com/jerno/just-http/basic"`  |Receive raw and string data                                             |
-|`"github.com/jerno/just-http/json"`   |Send and receive JSON data (automatically converted from structs) |
+|`github.com/jerno/just-http/basic`    |Receive raw and string data                                             |
+|`github.com/jerno/just-http/json`     |Send and receive JSON data (automatically converted from structs)       |
+
 
 ## Basic package
 
