@@ -1,3 +1,5 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/jerno/just-http)](https://goreportcard.com/report/github.com/jerno/just-http)
+
 # just-http
 
 A simple yet powerful HTTP client
