@@ -38,7 +38,7 @@ type justHttpRequest[TData any, TResponse any] struct {
 }
 
 // getArgs merges the request arguments passed to the function
-// It merges the structs, where latter values take precendence over the previous values (all field will be merged)
+// It merges the structs, where latter values take precedence over the previous values (all field will be merged)
 func getArgs(args []RequestArguments) RequestArguments {
 	merged := defaultArgs
 	for _, v := range args {
